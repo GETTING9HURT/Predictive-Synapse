@@ -1,2 +1,4 @@
 # Predictive-Synapse
-idk rn 
+
+There is index.html.html 
+which is updated one !
