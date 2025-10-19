@@ -3,434 +3,1044 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Predictive Synapse & Manufacturing Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Predictive Synapse Dashboard</title>
+    <script src="https://cdn.tailwindcss.com?plugins=typography"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        html {
-            scroll-behavior: smooth;
-        }
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .leaflet-container {
-            background: #4B5563; /* Gray-600 */
-        }
-        .leaflet-tile-pane {
-            filter: grayscale(1) invert(1) brightness(1.5);
-        }
-        .blinking-dot {
-            animation: blink 1.5s infinite;
-        }
-        @keyframes blink {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.3; }
-        }
-        .hero-bg {
-            background: linear-gradient(rgba(17, 24, 39, 0.9), rgba(17, 24, 39, 1)), url('https://placehold.co/1600x900/0B1120/313C4E?text=Futuristic+Global+Logistics+Network');
-            background-size: cover;
-            background-position: center;
-        }
-        /* Animation for hero text */
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .hero-title { animation: fadeInDown 1s ease-out forwards; }
-        .hero-subtitle { animation: fadeInDown 1s ease-out 0.2s forwards; opacity: 0; }
-        .hero-p { animation: fadeInDown 1s ease-out 0.4s forwards; opacity: 0; }
-        .hero-btn { animation: fadeInDown 1s ease-out 0.6s forwards; opacity: 0; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'Inter', sans-serif; background-color: #0d1117; }
+        .leaflet-container { background: #161b22; border-radius: 0.5rem; }
+        .leaflet-tile-pane { filter: grayscale(1) invert(0.9) brightness(1.2); }
+        .loader { border: 4px solid rgba(255, 255, 255, 0.2); border-top: 4px solid #38bdf8; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+        .loader-small { border: 2px solid rgba(255, 255, 255, 0.2); border-top: 2px solid #38bdf8; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block; margin-right: 8px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .notification { transition: all 0.5s ease-in-out; }
         
-        .loader {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 20px auto;
+        .fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        .fade-out { animation: fadeOut 0.5s ease-in forwards; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-10px); } }
+
+        .modal-content { max-height: 80vh; }
+        input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(1); }
+
+        #home-page {
+            background-image: radial-gradient(circle at 1px 1px, rgba(255,255,255,0.1) 1px, transparent 0);
+            background-size: 2rem 2rem;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+
+        .shiny-button {
+            position: relative;
+            overflow: hidden;
+        }
+
+        .shiny-button::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 60%);
+            transform: rotate(45deg);
+            transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+            opacity: 0;
+        }
+
+        .shiny-button:hover::after {
+            transform: scale(2) rotate(45deg);
+            opacity: 1;
+        }
+        
+        #maintenanceContent .prose pre {
+            background-color: #0d1117;
+            color: #c9d1d9;
+            border: 1px solid #30363d;
+            border-radius: 0.5rem;
+            padding: 1rem;
         }
     </style>
 </head>
-<body class="bg-gray-900 text-white">
+<body class="text-gray-200">
+    <div id="notification-container" class="fixed top-5 right-5 z-[250] w-full max-w-sm"></div>
 
-    <!-- Landing Page Section -->
-    <div id="landingPage">
-        <nav class="bg-gray-900/80 backdrop-blur-sm fixed w-full z-20 top-0 start-0 border-b border-gray-700">
-            <div class="max-w-screen-xl flex flex-wrap items-center justify-between mx-auto p-4">
-                <a href="#" class="flex items-center space-x-3 rtl:space-x-reverse">
-                    <svg class="w-8 h-8 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
-                    </svg>
-                    <span class="self-center text-2xl font-semibold whitespace-nowrap text-white">Predictive Synapse</span>
+    <!-- Home Page -->
+    <div id="home-page" class="fixed inset-0 bg-slate-900 z-[200] flex flex-col items-center justify-center text-center p-8 transition-opacity duration-500 ease-in-out">
+        <div class="max-w-2xl">
+            <div class="flex items-center justify-center space-x-4 mb-6 animate-pulse">
+                <svg class="w-12 h-12 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>
+                <h1 class="text-5xl font-bold text-white tracking-tight">Predictive Synapse</h1>
+            </div>
+            <p class="text-lg text-slate-300 mb-10 max-w-xl mx-auto">
+                Intelligent Logistics, Anticipated. Unify your global supply chain with predictive insights, transforming potential disruptions into strategic advantages.
+            </p>
+            <button id="enterDashboardBtn" class="shiny-button bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 shadow-lg shadow-cyan-500/20 hover:shadow-xl hover:shadow-cyan-500/40 text-lg">
+                Enter Dashboard
+            </button>
+            <div class="mt-16">
+                <a href="https://www.linkedin.com/in/aabid-hasan-076a32364/" target="_blank" rel="noopener noreferrer" class="inline-flex items-center space-x-2 text-slate-400 hover:text-cyan-400 transition-colors duration-300 group">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="currentColor" viewBox="0 0 24 24"><path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/></svg>
+                    <span class="group-hover:underline">Connect with Aabid Hasan</span>
                 </a>
-                <div class="hidden md:flex items-center space-x-8">
-                    <a href="#features" class="text-gray-300 hover:text-cyan-400 transition-colors">Features</a>
-                    <a href="#tech-stack" class="text-gray-300 hover:text-cyan-400 transition-colors">Technology</a>
-                </div>
-                <button class="try-it-btn bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-5 rounded-lg transition duration-300 ease-in-out">
-                    Try The Dashboard
-                </button>
             </div>
-        </nav>
-
-        <main>
-            <!-- Hero Section -->
-            <section class="hero-bg pt-24">
-                <div class="max-w-screen-xl mx-auto px-4 py-32 lg:py-48 text-center">
-                    <h1 class="text-4xl md:text-6xl font-extrabold tracking-tight text-white mb-4 hero-title">From Chaos to Control.</h1>
-                    <h2 class="text-4xl md:text-6xl font-extrabold tracking-tight text-cyan-400 mb-6 hero-subtitle">Predictive Logistics for Smart Manufacturing.</h2>
-                    <p class="mb-8 text-lg font-normal text-gray-300 lg:text-xl sm:px-16 lg:px-48 hero-p">Our system correlates real-time air freight data with factory floor predictive maintenance to proactively flag delivery risks before they disrupt your production line.</p>
-                    <button class="try-it-btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 text-lg rounded-lg transition duration-300 ease-in-out transform hover:scale-105 hero-btn">
-                        Try It Now
-                    </button>
-                </div>
-            </section>
-
-            <!-- Features Section -->
-            <section id="features" class="py-20 bg-gray-800">
-                <div class="max-w-screen-xl mx-auto px-4">
-                    <div class="text-center mb-12">
-                         <h2 class="text-sm font-bold uppercase text-cyan-400 tracking-widest">Core Capabilities</h2>
-                         <p class="text-3xl md:text-4xl font-bold mt-2">What Our System Provides</p>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                         <div class="bg-gray-900 p-8 rounded-lg text-center transform hover:-translate-y-2 transition-transform duration-300"><svg class="w-12 h-12 text-cyan-400 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12.75 3.03v.568c0 .334.148.65.405.864l1.068.89c.442.369.535 1.01.216 1.49l-.51.766a2.25 2.25 0 01-1.161.886l-.143.048a1.107 1.107 0 00-.57 1.664l.143.258a1.107 1.107 0 001.664.57l.143-.048a2.25 2.25 0 011.161.886l.51.766c.319.48.125 1.121-.216 1.49l-1.068.89a1.125 1.125 0 00-.405.864v.568m-6 0v-.568c0-.334-.148.65-.405-.864l-1.068-.89a1.125 1.125 0 01-.216-1.49l.51-.766a2.25 2.25 0 001.161-.886l.143-.048a1.107 1.107 0 01.57-1.664l-.143-.258a1.107 1.107 0 01-1.664-.57l-.143.048a2.25 2.25 0 00-1.161-.886l-.51-.766c-.319-.48-.125-1.121.216-1.49l1.068-.89a1.125 1.125 0 00.405-.864v-.568" /></svg><h3 class="text-xl font-bold mb-2">Predictive Maintenance</h3><p class="text-gray-400">Leverages ML models on factory sensor data to forecast machine failures with up to <span class="text-cyan-400 font-bold">95% accuracy</span>.</p></div>
-                         <div class="bg-gray-900 p-8 rounded-lg text-center transform hover:-translate-y-2 transition-transform duration-300"><svg class="w-12 h-12 text-cyan-400 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg><h3 class="text-xl font-bold mb-2">Live Logistics Tracking</h3><p class="text-gray-400">Ingests real-time flight data from global APIs to monitor critical shipments minute-by-minute.</p></div>
-                         <div class="bg-gray-900 p-8 rounded-lg text-center transform hover:-translate-y-2 transition-transform duration-300"><svg class="w-12 h-12 text-cyan-400 mx-auto mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.562L16.5 21.75l-.398-1.188a3.375 3.375 0 00-2.923-2.923L12 17.25l1.188-.398a3.375 3.375 0 002.923-2.923L16.5 12.75l.398 1.188a3.375 3.375 0 002.923 2.923L21 17.25l-1.188.398a3.375 3.375 0 00-2.923 2.923z" /></svg><h3 class="text-xl font-bold mb-2">AI-Powered Insights</h3><p class="text-gray-400">Leverages the Gemini API to generate expert summaries and actionable risk-mitigation strategies.</p></div>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Technology Stack Section -->
-            <section id="tech-stack" class="py-20 bg-gray-900">
-                <div class="max-w-screen-xl mx-auto px-4">
-                    <div class="text-center mb-12">
-                         <h2 class="text-sm font-bold uppercase text-cyan-400 tracking-widest">Powered By</h2>
-                         <p class="text-3xl md:text-4xl font-bold mt-2">A Modern, Scalable Stack</p>
-                    </div>
-                    <div class="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 items-center">
-                        <div class="text-center grayscale hover:grayscale-0 transition-all duration-300"><img src="https://placehold.co/150x80/FFFFFF/0B1120?text=Snowflake" alt="Snowflake Logo" class="mx-auto"><p class="mt-2 font-semibold">Snowflake</p></div>
-                        <div class="text-center grayscale hover:grayscale-0 transition-all duration-300"><img src="https://placehold.co/150x80/FFFFFF/0B1120?text=Snowpark" alt="Snowpark Logo" class="mx-auto"><p class="mt-2 font-semibold">Snowpark</p></div>
-                        <div class="text-center grayscale hover:grayscale-0 transition-all duration-300"><img src="https://placehold.co/150x80/FFFFFF/0B1120?text=Gemini" alt="Gemini Logo" class="mx-auto"><p class="mt-2 font-semibold">Gemini API</p></div>
-                        <div class="text-center grayscale hover:grayscale-0 transition-all duration-300"><img src="https://placehold.co/150x80/FFFFFF/0B1120?text=OpenSky+API" alt="OpenSky API Logo" class="mx-auto"><p class="mt-2 font-semibold">OpenSky Network</p></div>
-                    </div>
-                </div>
-            </section>
-
-             <!-- Testimonials Section -->
-            <section id="testimonials" class="py-20 bg-gray-800">
-                <div class="max-w-screen-md mx-auto px-4 text-center">
-                    <svg class="w-10 h-10 mx-auto mb-3 text-gray-400" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 14"><path d="M6 0H2a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h4v1a3 3 0 0 1-3 3H2a1 1 0 0 0 0 2h1a5.006 5.006 0 0 0 5-5V2a2 2 0 0 0-2-2Zm10 0h-4a2 2 0 0 0-2 2v4a2 2 0 0 0 2 2h4v1a3 3 0 0 1-3 3h-1a1 1 0 0 0 0 2h1a5.006 5.006 0 0 0 5-5V2a2 2 0 0 0-2-2Z"/></svg>
-                    <blockquote class="text-xl italic font-medium text-white">
-                        <p>"Predictive Synapse is a game-changer. We're no longer reacting to supply chain disruptions; we're anticipating them. The ability to see a delayed flight and its direct impact on a specific machine's health is incredible."</p>
-                    </blockquote>
-                    <figcaption class="flex items-center justify-center mt-6 space-x-3">
-                        <img class="w-8 h-8 rounded-full" src="https://placehold.co/40x40/FFFFFF/313C4E?text=JD" alt="profile picture">
-                        <div class="flex items-center divide-x-2 divide-gray-500">
-                            <cite class="pr-3 font-medium text-white">Jane Doe</cite>
-                            <cite class="pl-3 text-sm text-gray-400">Head of Logistics, Acme Corp</cite>
-                        </div>
-                    </figcaption>
-                </div>
-            </section>
-            
-            <!-- CTA Section -->
-            <section class="bg-gray-900">
-                <div class="py-16 px-4 mx-auto max-w-screen-xl sm:py-24 lg:px-6 text-center">
-                    <h2 class="text-3xl md:text-4xl font-extrabold tracking-tight text-white mb-4">Ready to prevent the next production halt?</h2>
-                    <p class="mb-8 text-lg text-gray-300">Explore the live dashboard and see the power of predictive correlation for yourself.</p>
-                    <button class="try-it-btn bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 text-lg rounded-lg transition duration-300 ease-in-out transform hover:scale-105">
-                        Try It Now
-                    </button>
-                </div>
-            </section>
-
-        </main>
-        
-        <footer class="bg-gray-800 border-t border-gray-700">
-            <div class="mx-auto w-full max-w-screen-xl p-4 py-6 lg:py-8">
-                 <div class="md:flex md:justify-between">
-                    <div class="mb-6 md:mb-0">
-                        <a href="#" class="flex items-center">
-                            <svg class="w-8 h-8 text-cyan-400 mr-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>
-                            <span class="self-center text-2xl font-semibold whitespace-nowrap text-white">Predictive Synapse</span>
-                        </a>
-                    </div>
-                     <div class="grid grid-cols-2 gap-8 sm:gap-6 sm:grid-cols-3">
-                         <div><h2 class="mb-6 text-sm font-semibold text-gray-400 uppercase">Resources</h2><ul class="text-gray-400 font-medium"><li><a href="#" class="hover:underline">Hackathon Project</a></li></ul></div>
-                         <div><h2 class="mb-6 text-sm font-semibold text-gray-400 uppercase">Follow us</h2>
-                            <div class="flex mt-4 space-x-5">
-                                <a href="https://github.com/GETTING9HURT/nigg" class="text-gray-400 hover:text-white">
-                                    <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.168 6.839 9.492.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.031-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.203 2.398.1 2.651.64.7 1.03 1.595 1.03 2.688 0 3.848-2.338 4.695-4.566 4.943.359.308.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.001 10.001 0 0022 12c0-5.523-4.477-10-10-10z" clip-rule="evenodd" /></svg>
-                                    <span class="sr-only">GitHub account</span>
-                                </a>
-                                <a href="https://www.instagram.com/aabid.9_" class="text-gray-400 hover:text-white">
-                                     <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12.315 2c-4.04.093-4.55 1.73-4.583 4.7.025.46.05.918.08 1.376a5.534 5.534 0 00-.317 2.135c-.062 1.59.23 2.822.863 3.834.596.944 1.48 1.573 2.59 1.833.642.152 1.284.23 1.928.23.46 0 .92-.026 1.378-.08a5.532 5.532 0 002.136-.318c1.59-.062 2.822-.23 3.834-.863.944-.596 1.573-1.48 1.833-2.59.152-.642.23-1.284.23-1.928 0-.46-.026-.92-.08-1.378a5.532 5.532 0 00-.318-2.136c-.062-1.59-.23-2.822-.863-3.834-.944-.596-1.83-1.225-2.822-1.485-.642-.152-1.284-.23-1.928-.23-.46 0-.92.026-1.378.08a5.532 5.532 0 00-2.136.318A12.2 12.2 0 0012.315 2zm-1.01 5.927c.392-.02.784-.032 1.176-.032.393 0 .785.012 1.178.032.98.05 1.84.22 2.59.6.58.3.96.73 1.18 1.33.18.52.26 1.1.28 1.74.02.64.02 1.28-.02 1.92-.05.98-.22 1.84-.6 2.59-.3.58-.73.96-1.33 1.18-.52.18-1.1.26-1.74.28-.64.02-1.28.02-1.92-.02-.98-.05-1.84-.22-2.59-.6-.58-.3-.96-.73-1.18-1.33-.18-.52-.26-1.1-.28-1.74-.02-.64-.02-1.28.02-1.92.05-.98.22-1.84.6-2.59.3-.58.73-.96 1.33-1.18.52-.18 1.1-.26 1.74-.28zm-1.17 2.373a2.7 2.7 0 115.4 0 2.7 2.7 0 01-5.4 0zm2.7-1.8a1.8 1.8 0 100 3.6 1.8 1.8 0 000-3.6zM15.9 7.8a.9.9 0 11-1.8 0 .9.9 0 011.8 0z" clip-rule="evenodd" /></svg>
-                                    <span class="sr-only">Instagram page</span>
-                                </a>
-                                <a href="https://www.linkedin.com/in/aabid-hasan-076a32364/" class="text-gray-400 hover:text-white">
-                                    <svg class="w-6 h-6" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 24 24"><path fill-rule="evenodd" d="M12.51 8.796a1.5 1.5 0 012.494 0l2.493 2.493a1.5 1.5 0 010 2.494l-2.493 2.493a1.5 1.5 0 01-2.494-2.494l.829-.828H8.5a1.5 1.5 0 010-3h4.839l-.828-.828a1.5 1.5 0 010-2.494zM8 2.25a.75.75 0 000 1.5h8.25a.75.75 0 000-1.5H8.25z" clip-rule="evenodd" /><path d="M3 5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25v13.5A2.25 2.25 0 0118.75 21H5.25A2.25 2.25 0 013 18.75V5.25zm2.25-.75a.75.75 0 00-.75.75v13.5c0 .414.336.75.75.75h13.5a.75.75 0 00.75-.75V5.25a.75.75 0 00-.75-.75H5.25z" /></svg>
-                                    <span class="sr-only">LinkedIn page</span>
-                                </a>
-                            </div>
-                         </div>
-                         <div><h2 class="mb-6 text-sm font-semibold text-gray-400 uppercase">Legal</h2><ul class="text-gray-400 font-medium"><li><a href="#" class="hover:underline">Privacy Policy</a></li></ul></div>
-                    </div>
-                </div>
-                <hr class="my-6 border-gray-700 sm:mx-auto lg:my-8" />
-                <div class="sm:flex sm:items-center sm:justify-between">
-                    <span class="text-sm text-gray-500 sm:text-center">© 2025 <a href="#" class="hover:underline">Predictive Synapse™</a>. All Rights Reserved.</span>
-                </div>
-            </div>
-        </footer>
-    </div>
-
-    <!-- Dashboard Section -->
-    <div id="dashboardPage" class="hidden">
-         <div class="container mx-auto p-4 md:p-6 lg:p-8">
-            <header class="mb-6 flex justify-between items-center"><button id="backToHomeBtn" class="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out">&larr; Back to Home</button></header>
-            <div class="bg-gray-800 rounded-lg p-4 mb-6 flex flex-col md:flex-row items-center gap-4">
-                <div class="flex-grow w-full md:w-auto"><label for="apiUserInput" class="text-sm font-medium text-gray-300">OpenSky Username</label><input type="text" id="apiUserInput" placeholder="Your OpenSky Username" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"></div>
-                <div class="flex-grow w-full md:w-auto"><label for="apiPassInput" class="text-sm font-medium text-gray-300">OpenSky Password</label><input type="password" id="apiPassInput" placeholder="Your OpenSky Password" class="mt-1 block w-full bg-gray-700 border border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"></div>
-                <button id="fetchDataBtn" class="w-full md:w-auto bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out self-end">Fetch Live Data</button>
-                <button id="runAnalysisBtn" class="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out self-end">Run Risk Analysis</button>
-                <button id="generateAISummaryBtn" class="w-full md:w-auto bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300 ease-in-out disabled:bg-gray-500 disabled:cursor-not-allowed self-end flex items-center justify-center" disabled>
-                    <svg class="w-5 h-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.898 20.562L16.5 21.75l-.398-1.188a3.375 3.375 0 00-2.923-2.923L12 17.25l1.188-.398a3.375 3.375 0 002.923-2.923L16.5 12.75l.398 1.188a3.375 3.375 0 002.923 2.923L21 17.25l-1.188.398a3.375 3.375 0 00-2.923 2.923z" /></svg>
-                    Generate AI Summary
-                </button>
-            </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div class="bg-gray-800 rounded-lg p-4 md:p-6 shadow-lg"><h2 class="text-2xl font-semibold text-gray-100 mb-4">Air Freight Logistics Monitoring</h2><div id="map" class="h-64 md:h-80 w-full rounded-lg mb-4 border border-gray-700"></div><div id="flight-data-container" class="space-y-3 max-h-96 overflow-y-auto pr-2"></div></div>
-                <div class="bg-gray-800 rounded-lg p-4 md:p-6 shadow-lg"><h2 class="text-2xl font-semibold text-gray-100 mb-4">Factory Floor Predictive Maintenance</h2>
-                    <div class="mb-4 bg-gray-700 p-4 rounded-lg h-64">
-                        <canvas id="factoryHealthPieChart_dashboard"></canvas>
-                    </div>
-                    <div id="machine-data-container" class="space-y-4 max-h-[29rem] overflow-y-auto pr-2"></div>
-                </div>
-            </div>
-            <div class="mt-6"><div id="alert-container" class="bg-gray-800 rounded-lg p-4 md:p-6 shadow-lg border-l-4 border-transparent"><h2 class="text-2xl font-semibold text-gray-100 mb-2"><span class="blinking-dot inline-block w-3 h-3 bg-gray-500 rounded-full mr-2"></span>Integrated Alerts & Prescriptive Insights</h2><div id="alert-message" class="text-gray-300 text-lg"><p>System nominal. Run risk analysis to check for potential delivery and production conflicts.</p><div id="loader" class="loader hidden"></div></div></div></div>
         </div>
     </div>
 
+    <header class="hidden bg-[#161b22] border-b border-gray-700/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex items-center space-x-4">
+                    <svg class="w-8 h-8 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" /></svg>
+                    <h1 class="text-xl font-bold text-white">Predictive Synapse</h1>
+                </div>
+                <div class="text-right">
+                    <p id="currentTime" class="text-lg font-semibold"></p>
+                    <p id="lastUpdated" class="text-xs text-gray-400">Using Initial Mock Data</p>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="hidden max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- KPI Cards -->
+            <div class="bg-[#161b22] border border-gray-700/50 rounded-lg p-5 flex items-center space-x-4">
+                <div class="bg-cyan-900/50 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-cyan-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg></div>
+                <div>
+                    <p class="text-sm text-gray-400">Tracked Flights</p>
+                    <p id="kpi-flights" class="text-2xl font-bold text-white">0</p>
+                </div>
+            </div>
+            <div class="bg-[#161b22] border border-gray-700/50 rounded-lg p-5 flex items-center space-x-4">
+                <div class="bg-purple-900/50 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-purple-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg></div>
+                <div>
+                    <p class="text-sm text-gray-400">Machines Monitored</p>
+                    <p id="kpi-machines" class="text-2xl font-bold text-white">0</p>
+                </div>
+            </div>
+            <div class="bg-[#161b22] border border-gray-700/50 rounded-lg p-5 flex items-center space-x-4">
+                <div class="bg-red-900/50 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg></div>
+                <div>
+                    <p class="text-sm text-gray-400">Active Alerts</p>
+                    <p id="kpi-alerts" class="text-2xl font-bold text-white">0</p>
+                </div>
+            </div>
+             <div class="bg-[#161b22] border border-gray-700/50 rounded-lg p-5 flex items-center space-x-4">
+                <div id="kpi-status-icon" class="bg-green-900/50 p-3 rounded-full"><svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
+                <div>
+                    <p class="text-sm text-gray-400">System Status</p>
+                    <p id="kpi-status" class="text-2xl font-bold text-white">Nominal</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-[#161b22] border border-gray-700/50 rounded-lg p-4 mb-8 flex flex-wrap items-end gap-4">
+            <div class="flex-grow"><label for="apiClientId" class="text-xs font-medium text-gray-400">OpenSky Client ID (Optional)</label><input type="text" id="apiClientId" class="mt-1 block w-full bg-[#0d1117] border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm" placeholder="Your OpenSky Client ID"></div>
+            <div class="flex-grow"><label for="apiClientSecret" class="text-xs font-medium text-gray-400">OpenSky Client Secret (Optional)</label><input type="password" id="apiClientSecret" class="mt-1 block w-full bg-[#0d1117] border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm" placeholder="Your OpenSky Client Secret"></div>
+            <button id="fetchDataBtn" class="bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">Fetch Live Data</button>
+            <button id="viewHistoryBtn" class="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">View Flight History</button>
+            <button id="runAnalysisBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 flex items-center">✨ Run Risk Analysis</button>
+            <button id="strategicBriefingBtn" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 flex items-center">✨ Generate Strategic Briefing</button>
+        </div>
+
+        <!-- Main Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Left Column: Logistics -->
+            <div class="space-y-8">
+                <div class="bg-[#161b22] border border-gray-700/50 rounded-lg p-6">
+                    <h2 class="text-xl font-bold text-white mb-4">Air Freight Logistics Monitoring</h2>
+                    <div id="map" class="h-80 w-full rounded-lg mb-4"></div>
+                </div>
+                <div id="flight-data-container" class="space-y-4"></div>
+            </div>
+
+            <!-- Right Column: Maintenance -->
+            <div class="space-y-8">
+                <div class="bg-[#161b22] border border-gray-700/50 rounded-lg p-6">
+                    <h2 class="text-xl font-bold text-white mb-4">Factory Floor Maintenance</h2>
+                    <div class="h-80 flex items-center justify-center"><div class="w-full max-w-xs"><canvas id="factoryHealthPieChart_dashboard"></canvas></div></div>
+                </div>
+                <div id="machine-data-container" class="space-y-4"></div>
+            </div>
+        </div>
+        
+        <!-- Alerts Section -->
+        <div id="alert-container" class="mt-8 bg-[#161b22] border-l-4 border-gray-600 rounded-lg p-6 transition-all duration-500">
+            <h2 class="text-xl font-bold text-white mb-2 flex items-center">
+                <span id="alert-blinking-dot" class="inline-block w-3 h-3 bg-gray-500 rounded-full mr-3"></span>
+                Integrated Alerts & Prescriptive Insights
+            </h2>
+            <div id="alert-message" class="text-gray-300">
+                <p>System nominal. Fetch live data or run risk analysis to check for potential delivery and production conflicts.</p>
+            </div>
+            <button id="generateAISummaryBtn" class="hidden mt-4 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">✨ Generate AI Summary & Mitigation Plan</button>
+        </div>
+    </main>
+    
+    <!-- Maintenance Modal -->
+    <div id="maintenanceModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[100] fade-in">
+        <div class="bg-[#161b22] border border-gray-700/50 rounded-lg shadow-xl p-6 max-w-2xl w-full mx-4 modal-content flex flex-col">
+             <div class="flex items-center justify-between pb-4 border-b border-gray-700 flex-shrink-0">
+                <div class="flex items-center">
+                    <svg class="w-8 h-8 text-purple-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.242 1.417l-1.07 1.07a.937.937 0 000 1.316l1.07 1.07a1.125 1.125 0 01.242 1.417l-1.296 2.247a1.125 1.125 0 01-1.37.49l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.127c-.332.183-.582.495-.645.87l-.213 1.281c-.09.543-.56.94-1.11.94h-2.593c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.063-.374-.313-.686-.645-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.242-1.417l1.07-1.07a.937.937 0 000 1.316l-1.07-1.07a1.125 1.125 0 01-.242-1.417l1.297-2.247a1.125 1.125 0 011.37-.49l1.217.456c.355.133.75.072 1.076-.124.072-.044.146-.087.22-.127.332-.183.582.495.645-.87l.213-1.281z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                    <h2 class="text-xl font-bold text-white ml-3">AI Maintenance Assistant</h2>
+                </div>
+                <button id="closeMaintenanceBtn" class="text-gray-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            <div id="maintenanceContent" class="mt-6 overflow-y-auto text-gray-300">
+                <!-- AI content will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Flight History Modal -->
+    <div id="historyModal" class="hidden fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-[100]">
+        <div class="bg-[#161b22] border border-gray-700/50 rounded-lg shadow-xl p-6 max-w-3xl w-full mx-4 modal-content flex flex-col">
+            <div class="flex items-center justify-between pb-4 border-b border-gray-700 flex-shrink-0">
+                <div class="flex items-center">
+                    <svg class="w-8 h-8 text-cyan-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <h2 class="text-xl font-bold text-white ml-3">Flight History Explorer</h2>
+                </div>
+                <button id="closeHistoryBtn" class="text-gray-400 hover:text-white text-3xl">&times;</button>
+            </div>
+            <div class="mt-6 flex-grow overflow-y-auto">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-4 p-4 bg-[#0d1117] rounded-lg">
+                    <div class="md:col-span-2">
+                        <label for="aircraftSelect" class="text-xs font-medium text-gray-400">Aircraft</label>
+                        <select id="aircraftSelect" class="mt-1 block w-full bg-gray-800 border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm"></select>
+                    </div>
+                    <div>
+                        <label for="beginDate" class="text-xs font-medium text-gray-400">Start Date</label>
+                        <input type="date" id="beginDate" class="mt-1 block w-full bg-gray-800 border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm">
+                    </div>
+                     <div>
+                        <label for="endDate" class="text-xs font-medium text-gray-400">End Date</label>
+                        <input type="date" id="endDate" class="mt-1 block w-full bg-gray-800 border-gray-600 rounded-md shadow-sm py-2 px-3 text-white focus:outline-none focus:ring-cyan-500 focus:border-cyan-500 sm:text-sm">
+                    </div>
+                </div>
+                 <div class="px-4 mb-4">
+                     <button id="fetchHistoryBtn" class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-md transition duration-300">Search Flight History</button>
+                 </div>
+                <div id="historyContent" class="mt-4 text-gray-300 p-4">
+                    <p class="text-center text-gray-500">Select an aircraft and a date range (max 2 days) to search for flights.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <script>
-        // --- PAGE SWITCHING LOGIC ---
-        const landingPage = document.getElementById('landingPage');
-        const dashboardPage = document.getElementById('dashboardPage');
-        const tryItBtns = document.querySelectorAll('.try-it-btn');
-        const backToHomeBtn = document.getElementById('backToHomeBtn');
+        // --- CONFIGURATION ---
+        // The API key is handled by the execution environment. 
+        // If you are running this file locally, you will need to insert your own Google AI API key here.
+        const apiKey = ""; 
+        // NIgga add your own api to use.
+        // --- DOM ELEMENTS ---
+        const homePage = document.getElementById('home-page');
+        const enterDashboardBtn = document.getElementById('enterDashboardBtn');
+        const dashboardHeader = document.querySelector('header');
+        const dashboardMain = document.querySelector('main');
 
-        const showDashboard = () => {
-            landingPage.classList.add('hidden');
-            dashboardPage.classList.remove('hidden');
-            window.scrollTo(0, 0);
-            setTimeout(() => {
-                map.invalidateSize();
-                renderFactoryPieChart();
-            }, 10);
-        };
+        const notificationContainer = document.getElementById('notification-container');
+        const currentTimeEl = document.getElementById('currentTime');
+        const lastUpdatedEl = document.getElementById('lastUpdated');
+        const kpiFlights = document.getElementById('kpi-flights');
+        const kpiMachines = document.getElementById('kpi-machines');
+        const kpiAlerts = document.getElementById('kpi-alerts');
+        const kpiStatus = document.getElementById('kpi-status');
+        const kpiStatusIcon = document.getElementById('kpi-status-icon');
+        const apiClientIdInput = document.getElementById('apiClientId');
+        const apiClientSecretInput = document.getElementById('apiClientSecret');
+        const fetchDataBtn = document.getElementById('fetchDataBtn');
+        const runAnalysisBtn = document.getElementById('runAnalysisBtn');
+        const strategicBriefingBtn = document.getElementById('strategicBriefingBtn');
+        const mapContainer = document.getElementById('map');
+        const flightContainer = document.getElementById('flight-data-container');
+        const machineContainer = document.getElementById('machine-data-container');
+        const alertContainer = document.getElementById('alert-container');
+        const alertBlinkingDot = document.getElementById('alert-blinking-dot');
+        const alertMessage = document.getElementById('alert-message');
+        const generateAISummaryBtn = document.getElementById('generateAISummaryBtn');
         
-        const showLandingPage = () => {
-            dashboardPage.classList.add('hidden');
-            landingPage.classList.remove('hidden');
-            window.scrollTo(0, 0);
-        };
+        // Maintenance Modal Elements
+        const maintenanceModal = document.getElementById('maintenanceModal');
+        const closeMaintenanceBtn = document.getElementById('closeMaintenanceBtn');
+        const maintenanceContent = document.getElementById('maintenanceContent');
 
-        tryItBtns.forEach(btn => btn.addEventListener('click', showDashboard));
-        backToHomeBtn.addEventListener('click', showLandingPage);
-        
-        // --- DASHBOARD & LANDING PAGE LOGIC ---
-        let detectedRisk = null;
-        let mockFlightData = [
-            { id: 'UAL543', icao24: 'a74b12', origin: 'SFO', dest: 'JFK', part: 'Turbine Blade X-1', machineId: 'M14860', status: 'On Time', lat: 39.86, lon: -104.67 },
-            { id: 'DLH455', icao24: '3c6a4d', origin: 'FRA', dest: 'ORD', part: 'Actuator Model A', machineId: 'L47182', status: 'On Time', lat: 50.03, lon: 8.57 },
-            { id: 'BAW285', icao24: '406a4d', origin: 'LHR', dest: 'JFK', part: 'Compressor Unit Z', machineId: 'L57154', status: 'Delayed', lat: 51.47, lon: -0.45 },
-            { id: 'QTR703', icao24: '06a0a7', origin: 'DOH', dest: 'IAD', part: 'Sensor Housing Y-2', machineId: 'H39385', status: 'On Time', lat: 25.27, lon: 51.60 }
+        // History Modal Elements
+        const viewHistoryBtn = document.getElementById('viewHistoryBtn');
+        const historyModal = document.getElementById('historyModal');
+        const closeHistoryBtn = document.getElementById('closeHistoryBtn');
+        const aircraftSelect = document.getElementById('aircraftSelect');
+        const beginDateInput = document.getElementById('beginDate');
+        const endDateInput = document.getElementById('endDate');
+        const fetchHistoryBtn = document.getElementById('fetchHistoryBtn');
+        const historyContent = document.getElementById('historyContent');
+
+        // --- APP STATE ---
+        let activeFlightData = []; 
+        const trackedAircraft = [
+            { icao24: 'a74b12', part: 'Turbine Blade X-1', machineId: 'M14860', defaultOrigin: 'SFO', defaultDest: 'JFK' },
+            { icao24: '3c6a4d', part: 'Actuator Model A', machineId: 'L47182', defaultOrigin: 'FRA', defaultDest: 'ORD' },
+            { icao24: '406a4d', part: 'Compressor Unit Z', machineId: 'L57154', defaultOrigin: 'LHR', defaultDest: 'JFK' },
+            { icao24: '06a0a7', part: 'Sensor Housing Y-2', machineId: 'H39385', defaultOrigin: 'DOH', defaultDest: 'IAD' },
+            { icao24: '71c007', part: 'Hydraulic Pump 7C', machineId: 'P98210', defaultOrigin: 'DXB', defaultDest: 'SIN' },
+            { icao24: 'ad40f1', part: 'Navigation Gyro NG-5', machineId: 'G11235', defaultOrigin: 'LAX', defaultDest: 'SYD' },
+            { icao24: '4b1802', part: 'Landing Gear Strut', machineId: 'S55432', defaultOrigin: 'CDG', defaultDest: 'HND' },
+            { icao24: 'a4c281', part: 'Engine Cowling EC-22', machineId: 'C87654', defaultOrigin: 'JNB', defaultDest: 'AMS' },
+            { icao24: 'c0293b', part: 'Fuel Injector FI-99', machineId: 'F10987', defaultOrigin: 'YYZ', defaultDest: 'GRU' },
+            { icao24: 'ab78a4', part: 'Control Surface Actuator', machineId: 'A23456', defaultOrigin: 'PEK', defaultDest: 'FCO' },
+            { icao24: '4ca638', part: 'APU Starter Motor', machineId: 'M78901', defaultOrigin: 'DEL', defaultDest: 'LHR' },
+            { icao24: '899064', part: 'Brake Assembly B-45', machineId: 'B45678', defaultOrigin: 'HKG', defaultDest: 'SFO' }
         ];
-
         let mockMachineData = [
             { id: 'M14860', type: 'M', airTemp: 298.1, processTemp: 308.6, rotSpeed: 1551, torque: 42.8, toolWear: 0, failureProb: 0.02 },
             { id: 'L47182', type: 'L', airTemp: 298.1, processTemp: 308.5, rotSpeed: 1498, torque: 49.4, toolWear: 5, failureProb: 0.04 },
             { id: 'H39385', type: 'H', airTemp: 298.5, processTemp: 308.2, rotSpeed: 1563, torque: 44.6, toolWear: 163, failureProb: 0.65 },
             { id: 'L57154', type: 'L', airTemp: 298.6, processTemp: 308.2, rotSpeed: 1361, torque: 68.2, toolWear: 172, failureProb: 0.91 },
-            { id: 'M24835', type: 'M', airTemp: 298.6, processTemp: 308.3, rotSpeed: 1589, torque: 34.1, toolWear: 174, failureProb: 0.85 }
+            { id: 'M24835', type: 'M', airTemp: 298.6, processTemp: 308.3, rotSpeed: 1589, torque: 34.1, toolWear: 174, failureProb: 0.85 },
+            { id: 'P98210', type: 'H', airTemp: 299.0, processTemp: 309.1, rotSpeed: 1620, torque: 39.5, toolWear: 25, failureProb: 0.15 },
+            { id: 'G11235', type: 'M', airTemp: 298.3, processTemp: 308.7, rotSpeed: 1510, torque: 45.1, toolWear: 10, failureProb: 0.05 },
+            { id: 'S55432', type: 'L', airTemp: 299.5, processTemp: 309.8, rotSpeed: 1301, torque: 75.2, toolWear: 190, failureProb: 0.88 },
+            { id: 'C87654', type: 'H', airTemp: 298.9, processTemp: 309.0, rotSpeed: 1599, torque: 41.3, toolWear: 40, failureProb: 0.20 },
+            { id: 'F10987', type: 'M', airTemp: 300.1, processTemp: 310.5, rotSpeed: 1450, torque: 55.8, toolWear: 120, failureProb: 0.55 },
+            { id: 'A23456', type: 'L', airTemp: 297.8, processTemp: 308.1, rotSpeed: 1488, torque: 48.2, toolWear: 2, failureProb: 0.01 },
+            { id: 'M78901', type: 'M', airTemp: 298.7, processTemp: 308.8, rotSpeed: 1534, torque: 43.7, toolWear: 15, failureProb: 0.08 },
+            { id: 'B45678', type: 'H', airTemp: 300.5, processTemp: 311.0, rotSpeed: 1680, torque: 35.9, toolWear: 155, failureProb: 0.68 }
         ];
 
-        const flightContainer = document.getElementById('flight-data-container');
-        const machineContainer = document.getElementById('machine-data-container');
-        const alertContainer = document.getElementById('alert-container');
-        const alertMessage = document.getElementById('alert-message');
-        const alertBlinkingDot = alertContainer.querySelector('.blinking-dot');
-        const fetchDataBtn = document.getElementById('fetchDataBtn');
-        const runAnalysisBtn = document.getElementById('runAnalysisBtn');
-        const generateAISummaryBtn = document.getElementById('generateAISummaryBtn');
-        const apiUserInput = document.getElementById('apiUserInput');
-        const apiPassInput = document.getElementById('apiPassInput');
-        const loader = document.getElementById('loader');
-
-        const map = L.map('map').setView([40, -40], 2);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(map);
+        // --- MAP & CHART INITIALIZATION ---
+        let map = null;
         let markers = {};
+        let factoryHealthChart = null;
+        
+        // --- UTILITY FUNCTIONS ---
+        const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-        function renderFactoryPieChart() {
-            const ctx = document.getElementById('factoryHealthPieChart_dashboard').getContext('2d');
-            const machineStatus = {
-                healthy: mockMachineData.filter(m => m.failureProb <= 0.5).length,
-                atRisk: mockMachineData.filter(m => m.failureProb > 0.5 && m.failureProb <= 0.75).length,
-                critical: mockMachineData.filter(m => m.failureProb > 0.75).length,
-            };
-
-            new Chart(ctx, {
-                type: 'pie',
-                data: { labels: ['Healthy', 'At Risk', 'Critical'], datasets: [{ label: 'Machine Status', data: [machineStatus.healthy, machineStatus.atRisk, machineStatus.critical], backgroundColor: ['rgba(34, 197, 94, 0.7)','rgba(234, 179, 8, 0.7)','rgba(239, 68, 68, 0.7)',], borderColor: ['rgb(34, 197, 94)','rgb(234, 179, 8)','rgb(239, 68, 68)',], borderWidth: 1 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { color: '#D1D5DB', font: { size: 12 } } }, title: { display: true, text: 'Machine Status Overview', color: '#F9FAFB', font: { size: 16 } } } }
-            });
+        function showNotification(message, type = 'success') {
+            const bgColor = type === 'success' ? 'bg-green-600' : 'bg-red-600';
+            const notif = document.createElement('div');
+            notif.className = `notification p-4 rounded-lg text-white shadow-lg mb-2 ${bgColor} transform transition-all duration-300 translate-x-full`;
+            notif.textContent = message;
+            notificationContainer.appendChild(notif);
+            setTimeout(() => notif.classList.remove('translate-x-full'), 10);
+            setTimeout(() => {
+                notif.classList.add('translate-x-full');
+                setTimeout(() => notif.remove(), 300);
+            }, 5000);
         }
 
-        function getStatusClass(status) { return status === 'On Time' || status === 'In Air' ? 'text-green-400' : status === 'Delayed' ? 'text-yellow-400' : 'text-gray-400'; }
-        function getProbClass(prob) { if (prob > 0.75) return 'text-red-500'; if (prob > 0.5) return 'text-yellow-400'; return 'text-green-400'; }
+        function updateTime() {
+            const now = new Date();
+            currentTimeEl.textContent = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+        }
+        
+        // --- API CALLS ---
+        async function getOpenSkyAuthToken(clientId, clientSecret) {
+            const tokenUrl = 'https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token';
+            const params = new URLSearchParams();
+            params.append('grant_type', 'client_credentials');
+            params.append('client_id', clientId);
+            params.append('client_secret', clientSecret);
 
-        function renderFlightData() {
-            flightContainer.innerHTML = '';
-            mockFlightData.forEach(flight => {
-                const flightEl = document.createElement('div');
-                flightEl.className = 'bg-gray-700 p-3 rounded-lg';
-                flightEl.innerHTML = `<div class="flex justify-between items-center"><span class="font-bold text-lg text-cyan-300">${flight.id}</span><span class="font-semibold px-2 py-0.5 rounded-full text-sm ${getStatusClass(flight.status)}">${flight.status}</span></div><p class="text-sm text-gray-300 mt-1">Route: ${flight.origin} -> ${flight.dest}</p><p class="text-sm text-gray-400">Carrying: <span class="font-medium text-gray-200">${flight.part}</span> for Machine <span class="font-medium text-gray-200">${flight.machineId}</span></p>`;
-                flightContainer.appendChild(flightEl);
-                if (flight.lat && flight.lon) {
-                    if (markers[flight.id]) markers[flight.id].setLatLng([flight.lat, flight.lon]);
-                    else markers[flight.id] = L.marker([flight.lat, flight.lon]).addTo(map).bindPopup(`<b>${flight.id}</b><br>${flight.part}`);
-                }
+            const response = await fetch(tokenUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: params
             });
+
+            if (!response.ok) {
+                 const errorData = await response.json();
+                throw new Error(`Failed to get OpenSky auth token. Server says: ${errorData.error_description || response.statusText}`);
+            }
+
+            const data = await response.json();
+            return data.access_token;
+        }
+
+        async function callGeminiAPI(systemPrompt, userQuery) {
+            if (!apiKey) {
+                const errorMsg = "API Key is missing. Please add your Google AI API key at the top of the script to use AI features.";
+                showNotification(errorMsg, 'error');
+                throw new Error(errorMsg);
+            }
+            const model = 'gemini-2.5-flash-preview-09-2025';
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+            
+            const payload = { 
+                contents: [{ parts: [{ text: userQuery }] }], 
+                systemInstruction: { parts: [{ text: systemPrompt }] }, 
+                tools: [{ "google_search": {} }] 
+            };
+            
+            let retries = 3;
+            let delay = 1000;
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                
+                    if (!response.ok) {
+                        let errorDetails = `AI API call failed with status: ${response.status}`;
+                        try {
+                            const errorData = await response.json();
+                            errorDetails += ` - ${errorData.error?.message || 'No additional error details.'}`;
+                        } catch (e) {
+                            errorDetails += ` - Could not parse error response.`;
+                        }
+
+                        if (response.status === 429) {
+                            errorDetails = "You have exceeded your API quota. Please check your plan and billing details.";
+                        }
+
+                        if (response.status === 400) {
+                             errorDetails += " This may be due to a missing or invalid API key."
+                        }
+
+                        if (response.status === 429 || response.status >= 500) {
+                            console.warn(`Attempt ${i + 1}/${retries}: ${errorDetails}. Retrying in ${delay / 1000}s...`);
+                            if (i === retries - 1) { // Last retry
+                                throw new Error(`AI API call failed after multiple retries. Last error: ${errorDetails}`);
+                            }
+                            await sleep(delay);
+                            delay *= 2; 
+                            continue;
+                        } else {
+                            throw new Error(errorDetails);
+                        }
+                    }
+
+                    const result = await response.json();
+                    const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) {
+                        const finishReason = result.candidates?.[0]?.finishReason;
+                        if (finishReason === 'SAFETY') {
+                             throw new Error("AI response was blocked due to safety settings.");
+                        }
+                        console.error("Malformed AI Response:", JSON.stringify(result, null, 2));
+                        throw new Error("Received an empty or malformed response from the AI model.");
+                    }
+                    return text;
+
+                } catch (error) {
+                    console.error(`Error during API call attempt ${i + 1}:`, error.message);
+                    if (i === retries - 1) {
+                        throw error; 
+                    }
+                    await sleep(delay);
+                    delay *= 2;
+                }
+            }
+            throw new Error("AI API call failed after all retry attempts.");
+        }
+        
+        // --- UI RENDERING ---
+        function updateKPIs() {
+            kpiFlights.textContent = activeFlightData.length;
+            kpiMachines.textContent = mockMachineData.length;
+            const alerts = mockMachineData.filter(m => m.failureProb > 0.75).length + activeFlightData.filter(f => f.status === 'Delayed').length;
+            kpiAlerts.textContent = alerts;
+            
+            if (alerts > 0) {
+                kpiStatus.textContent = 'Alert';
+                kpiStatus.classList.add('text-red-400');
+                kpiStatusIcon.className = 'bg-red-900/50 p-3 rounded-full';
+                kpiStatusIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>`;
+            } else {
+                kpiStatus.textContent = 'Nominal';
+                kpiStatus.classList.remove('text-red-400');
+                kpiStatusIcon.className = 'bg-green-900/50 p-3 rounded-full';
+                kpiStatusIcon.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>`;
+            }
         }
 
         function renderMachineData() {
             machineContainer.innerHTML = '';
             mockMachineData.forEach(machine => {
                 const machineEl = document.createElement('div');
-                machineEl.className = 'bg-gray-700 p-4 rounded-lg';
-                machineEl.innerHTML = `<div class="flex justify-between items-start mb-2"><div><h3 class="font-bold text-lg text-indigo-300">${machine.id}</h3><p class="text-sm text-gray-400">Type: ${machine.type}</p></div><div class="text-right"><p class="text-sm text-gray-300">Failure Probability</p><p class="font-bold text-2xl ${getProbClass(machine.failureProb)}">${(machine.failureProb * 100).toFixed(0)}%</p></div></div><div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm mt-3"><div class="bg-gray-600 p-2 rounded"><p class="text-gray-400">Air Temp</p><p class="font-medium">${machine.airTemp} K</p></div><div class="bg-gray-600 p-2 rounded"><p class="text-gray-400">Process Temp</p><p class="font-medium">${machine.processTemp} K</p></div><div class="bg-gray-600 p-2 rounded"><p class="text-gray-400">Rot. Speed</p><p class="font-medium">${machine.rotSpeed} rpm</p></div><div class="bg-gray-600 p-2 rounded"><p class="text-gray-400">Tool Wear</p><p class="font-medium">${machine.toolWear} min</p></div></div>`;
+                machineEl.className = 'bg-[#161b22] border border-gray-700/50 rounded-lg p-5';
+                
+                const maintenanceButtonHtml = machine.failureProb > 0.5 ? 
+                    `<div class="mt-4 pt-4 border-t border-gray-700/50">
+                        <button onclick="planMaintenance('${machine.id}')" class="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-md transition duration-300 flex items-center justify-center">
+                            ✨ Plan Maintenance
+                        </button>
+                    </div>` : '';
+
+                machineEl.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h3 class="font-bold text-lg text-white">${machine.id}</h3>
+                            <p class="text-sm text-gray-400">Type: ${machine.type}</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold text-2xl ${(machine.failureProb > 0.75) ? 'text-red-400' : (machine.failureProb > 0.5) ? 'text-yellow-400' : 'text-green-400'}">
+                                ${(machine.failureProb * 100).toFixed(0)}%
+                            </p>
+                            <p class="text-xs text-gray-400">Failure Probability</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-sm mt-4">
+                        <div class="bg-[#0d1117] p-2 rounded-md"><p class="text-gray-400 text-xs">Air Temp</p><p class="font-medium text-white">${machine.airTemp} K</p></div>
+                        <div class="bg-[#0d1117] p-2 rounded-md"><p class="text-gray-400 text-xs">Process Temp</p><p class="font-medium text-white">${machine.processTemp} K</p></div>
+                        <div class="bg-[#0d1117] p-2 rounded-md"><p class="text-gray-400 text-xs">Rot. Speed</p><p class="font-medium text-white">${machine.rotSpeed} rpm</p></div>
+                        <div class="bg-[#0d1117] p-2 rounded-md"><p class="text-gray-400 text-xs">Tool Wear</p><p class="font-medium text-white">${machine.toolWear} min</p></div>
+                    </div>
+                    ${maintenanceButtonHtml}
+                `;
                 machineContainer.appendChild(machineEl);
             });
         }
         
-        async function fetchFlightData() {
-            flightContainer.innerHTML = `<div class="p-4 text-center text-gray-400">Updating flight statuses with live data...</div>`;
-            fetchDataBtn.disabled = true;
-            fetchDataBtn.textContent = 'Fetching...';
+        function renderFlightData() {
+            if (!map) return; // Don't render if map isn't initialized
+            flightContainer.innerHTML = '';
+            Object.values(markers).forEach(marker => map.removeLayer(marker));
+            markers = {};
+            if (activeFlightData.length === 0) {
+                flightContainer.innerHTML = `<div class="bg-[#161b22] border border-gray-700/50 rounded-lg p-5 text-center text-gray-400">No tracked flights currently detected.</div>`;
+                return;
+            }
+            activeFlightData.forEach(flight => {
+                const flightEl = document.createElement('div');
+                flightEl.className = 'bg-[#161b22] border border-gray-700/50 rounded-lg p-5';
+                flightEl.id = `flight-${flight.icao24}`;
+                
+                const statusColor = flight.status === 'In Air' ? 'text-green-400' : (flight.status === 'Delayed' || flight.status === 'Not Detected') ? 'text-yellow-400' : 'text-gray-400';
+                
+                flightEl.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-lg text-white">${flight.id}</h3>
+                        <span class="font-semibold px-2 py-0.5 rounded-full text-xs ${statusColor} bg-gray-700/50">${flight.status}</span>
+                    </div>
+                    <p class="text-sm text-gray-400 mt-1">Route: ${flight.origin} &rarr; ${flight.dest}</p>
+                    <p class="text-sm text-gray-400">Carrying: <span class="font-medium text-gray-200">${flight.part}</span> for <span class="font-medium text-gray-200">${flight.machineId}</span></p>
+                    <div id="weather-analysis-${flight.icao24}" class="mt-3 pt-3 border-t border-gray-700/50"></div>
+                    <div class="mt-2">
+                        <button onclick="analyzeWeatherImpact(event, '${flight.icao24}')" class="w-full bg-sky-600 hover:bg-sky-700 text-white text-sm font-bold py-2 px-3 rounded-md transition duration-300 flex items-center justify-center">
+                            ✨ Analyze Weather Impact
+                        </button>
+                    </div>
+                `;
+                flightContainer.appendChild(flightEl);
+                if (flight.lat && flight.lon) {
+                    markers[flight.id] = L.marker([flight.lat, flight.lon]).addTo(map).bindPopup(`<b>${flight.id}</b><br>${flight.part}`);
+                }
+            });
+        }
+        
+        function renderFactoryPieChart() {
+            if (factoryHealthChart) factoryHealthChart.destroy();
+            const ctx = document.getElementById('factoryHealthPieChart_dashboard').getContext('2d');
+            const machineStatus = {
+                healthy: mockMachineData.filter(m => m.failureProb <= 0.5).length,
+                atRisk: mockMachineData.filter(m => m.failureProb > 0.5 && m.failureProb <= 0.75).length,
+                critical: mockMachineData.filter(m => m.failureProb > 0.75).length,
+            };
+            factoryHealthChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Healthy', 'At Risk', 'Critical'],
+                    datasets: [{
+                        data: [machineStatus.healthy, machineStatus.atRisk, machineStatus.critical],
+                        backgroundColor: ['rgba(34, 197, 94, 0.7)', 'rgba(234, 179, 8, 0.7)', 'rgba(239, 68, 68, 0.7)'],
+                        borderColor: ['#22c55e', '#eab308', '#ef4444'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#9ca3af' } },
+                        title: { display: false }
+                    }
+                }
+            });
+        }
 
-            const user = apiUserInput.value;
-            const pass = apiPassInput.value;
-            const authHeader = user && pass ? { 'Authorization': 'Basic ' + btoa(user + ':' + pass) } : {};
+        async function fetchOpenSkyData() {
+            const button = fetchDataBtn;
+            button.disabled = true;
+            button.innerHTML = `<div class="loader-small"></div> Fetching...`;
 
-            const openSkyURL = 'https://opensky-network.org/api/states/all';
+            const clientId = apiClientIdInput.value;
+            const clientSecret = apiClientSecretInput.value;
+            const useAuth = clientId && clientSecret;
+            const headers = new Headers();
 
             try {
-                const response = await fetch(openSkyURL, { headers: authHeader });
-                if (!response.ok) {
-                    throw new Error(`OpenSky API call failed with status: ${response.status}`);
+                if (useAuth) {
+                    const token = await getOpenSkyAuthToken(clientId, clientSecret);
+                    headers.append('Authorization', 'Bearer ' + token);
                 }
-                const liveData = await response.json();
-                const liveStates = new Map(liveData.states ? liveData.states.map(s => [s[0], s]) : []);
 
-                mockFlightData.forEach(flight => {
-                    const liveState = liveStates.get(flight.icao24);
-                    if (liveState) {
-                        flight.lat = liveState[6];
-                        flight.lon = liveState[5];
-                        flight.status = liveState[8] ? 'On Ground' : 'In Air';
-                    } else {
-                        flight.status = 'Status Unknown';
+                const icaoList = trackedAircraft.map(ac => `icao24=${ac.icao24}`).join('&');
+                const response = await fetch(`https://opensky-network.org/api/states/all?${icaoList}`, {
+                    method: 'GET',
+                    headers: headers
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                         throw new Error(`Authentication failed. Please check your credentials.`);
+                    }
+                     if (response.status === 429) {
+                        const retryAfter = response.headers.get('X-Rate-Limit-Retry-After-Seconds');
+                        throw new Error(`API rate limit exceeded. Please try again in ${retryAfter || 'a few'} seconds.`);
+                    }
+                    throw new Error(`OpenSky API responded with status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                const aircraftInfoMap = new Map(trackedAircraft.map(ac => [ac.icao24, ac]));
+                const seenIcaos = new Set();
+                
+                const liveFlights = (data.states || []).map(state => {
+                    const icao24 = state[0];
+                    const staticInfo = aircraftInfoMap.get(icao24);
+                    seenIcaos.add(icao24);
+
+                    return {
+                        icao24: icao24,
+                        id: state[1]?.trim() || `FLIGHT-${icao24.slice(0,3).toUpperCase()}`,
+                        origin: staticInfo.defaultOrigin,
+                        dest: staticInfo.defaultDest,
+                        part: staticInfo.part,
+                        machineId: staticInfo.machineId,
+                        status: state[8] ? 'On Ground' : 'In Air',
+                        lat: state[6],
+                        lon: state[5],
+                    };
+                });
+                
+                // Add back any tracked aircraft that weren't in the API response
+                trackedAircraft.forEach(ac => {
+                    if (!seenIcaos.has(ac.icao24)) {
+                        liveFlights.push({
+                            ...ac,
+                            id: `STANDBY-${ac.icao24.slice(0,3).toUpperCase()}`,
+                            status: 'Not Detected',
+                            lat: null,
+                            lon: null,
+                        });
                     }
                 });
+
+                activeFlightData = liveFlights;
+                
                 renderFlightData();
-                alert('Live flight data has been successfully updated!');
+                updateKPIs();
+
+                lastUpdatedEl.textContent = `Live Data @ ${new Date().toLocaleTimeString()}`;
+                showNotification(`Successfully fetched live flight data! (${useAuth ? 'Authenticated' : 'Anonymous'})`, 'success');
+
             } catch (error) {
                 console.error("Error fetching OpenSky data:", error);
-                flightContainer.innerHTML = `<div class="p-4 text-center text-red-400">Failed to fetch live flight data. Displaying last known data.</div>`;
-                renderFlightData();
-                alert('Could not fetch live data. Please check credentials/connection and try again.');
+                showNotification(`Failed to fetch live data: ${error.message}`, 'error');
+                // Revert to default data on failure
+                initializeDefaultData();
             } finally {
-                fetchDataBtn.disabled = false;
-                fetchDataBtn.textContent = 'Fetch Live Data';
-            }
-        }
-
-        function runRiskAnalysis() {
-            detectedRisk = null;
-            let riskFound = false;
-            for (const flight of mockFlightData) {
-                if (flight.status === 'Delayed' || flight.status === 'Status Unknown') {
-                    const machine = mockMachineData.find(m => m.id === flight.machineId);
-                    if (machine && machine.failureProb > 0.75) {
-                        riskFound = true;
-                        detectedRisk = { flight, machine };
-                        break; 
-                    }
-                }
-            }
-
-            if (riskFound) {
-                alertContainer.className = 'bg-red-900/50 rounded-lg p-6 shadow-lg border-l-4 border-red-500';
-                alertBlinkingDot.className = 'blinking-dot inline-block w-3 h-3 bg-red-500 rounded-full mr-2';
-                alertMessage.innerHTML = `<p><strong>Critical Risk Detected!</strong> A correlated flight delay and machine failure prediction has been found. Click 'Generate AI Summary' for an expert analysis and action plan.</p><div id="loader" class="loader hidden"></div>`;
-                generateAISummaryBtn.disabled = false;
-            } else {
-                alertContainer.className = 'bg-green-900/50 rounded-lg p-6 shadow-lg border-l-4 border-green-500';
-                alertBlinkingDot.className = 'blinking-dot inline-block w-3 h-3 bg-green-500 rounded-full mr-2';
-                alertMessage.innerHTML = `<p><strong>System Scan Complete:</strong> No correlated risks found. Production and logistics are nominal.</p><div id="loader" class="loader hidden"></div>`;
-                generateAISummaryBtn.disabled = true;
-            }
-        }
-
-        async function generateAISummary() {
-            if (!detectedRisk) return;
-            const loader = alertMessage.querySelector('.loader');
-            loader.classList.remove('hidden');
-            alertMessage.firstChild.textContent = ''; // Clear initial text
-            generateAISummaryBtn.disabled = true;
-
-            const { flight, machine } = detectedRisk;
-            const userQuery = `You are a world-class logistics and manufacturing operations analyst. A critical situation has occurred. A flight carrying a vital component is delayed, and the machine that requires this component is predicted to fail soon. Based on the following data, provide a concise, actionable summary for the operations manager. The summary should include a clear heading, a brief explanation of the risk, and a bulleted list of recommended actions. **Flight Data:** - Flight ID: ${flight.id} - Part: ${flight.part} - Status: ${flight.status} **Machine Data:** - Machine ID: ${machine.id} - Failure Probability: ${(machine.failureProb * 100).toFixed(0)}% Generate the response as a simple HTML string.`;
-            
-            const apiKey = "AIzaSyCFHpYcAB49zzlgxxmcIqWx68jGXIEx6KA";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-            try {
-                const payload = { contents: [{ parts: [{ text: userQuery }] }], };
-                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                if (!response.ok) { throw new Error(`API call failed with status: ${response.status}`); }
-                const result = await response.json();
-                const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-                if (text) { alertMessage.innerHTML = text; } 
-                else { alertMessage.innerHTML = '<p class="text-red-400">Error: Could not retrieve a valid summary from the AI. Please try again.</p>'; }
-            } catch (error) {
-                console.error("Error calling Gemini API:", error);
-                alertMessage.innerHTML = `<p class="text-red-400">An error occurred while generating the AI summary. Please check the console for details.</p>`;
-            } finally {
-                const finalLoader = document.getElementById('loader');
-                if(finalLoader) finalLoader.classList.add('hidden');
-                generateAISummaryBtn.disabled = false;
+                button.disabled = false;
+                button.innerHTML = `Fetch Live Data`;
             }
         }
         
-        document.addEventListener('DOMContentLoaded', () => {
-            renderFlightData();
+        function renderFlightHistory(flights) {
+            historyContent.innerHTML = '';
+            if (!flights || flights.length === 0) {
+                historyContent.innerHTML = `<p class="text-center text-gray-500">No flights found for the selected aircraft and date range.</p>`;
+                return;
+            }
+
+            flights.forEach(flight => {
+                const flightCard = document.createElement('div');
+                flightCard.className = 'bg-[#0d1117] p-4 rounded-lg mb-3 border border-gray-700/50';
+                flightCard.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div class="font-bold text-lg text-white">${flight.estDepartureAirport || 'N/A'} &rarr; ${flight.estArrivalAirport || 'N/A'}</div>
+                        <div class="text-sm text-gray-400">${flight.callsign?.trim() || 'No Callsign'}</div>
+                    </div>
+                    <div class="text-sm mt-2 grid grid-cols-2 gap-x-4">
+                        <p class="text-gray-400"><strong>First Seen:</strong> <span class="text-gray-200">${new Date(flight.firstSeen * 1000).toLocaleString()}</span></p>
+                        <p class="text-gray-400"><strong>Last Seen:</strong> <span class="text-gray-200">${new Date(flight.lastSeen * 1000).toLocaleString()}</span></p>
+                        <p class="text-gray-400"><strong>Departure Airport Candidates:</strong> <span class="text-gray-200">${flight.estDepartureAirportHorizDistance} m</span></p>
+                        <p class="text-gray-400"><strong>Arrival Airport Candidates:</strong> <span class="text-gray-200">${flight.estArrivalAirportHorizDistance} m</span></p>
+                    </div>
+                `;
+                historyContent.appendChild(flightCard);
+            });
+        }
+
+
+        async function fetchFlightHistory() {
+            const button = fetchHistoryBtn;
+            button.disabled = true;
+            button.innerHTML = `<div class="loader-small"></div> Searching...`;
+            historyContent.innerHTML = `<div class="flex justify-center p-8"><div class="loader"></div></div>`;
+
+            const icao24 = aircraftSelect.value;
+            const beginDate = beginDateInput.value;
+            const endDate = endDateInput.value;
+
+            if (!icao24 || !beginDate || !endDate) {
+                showNotification('Please select an aircraft and both start and end dates.', 'error');
+                historyContent.innerHTML = `<p class="text-center text-gray-500">Select an aircraft and a date range (max 2 days) to search for flights.</p>`;
+                button.disabled = false;
+                button.innerHTML = 'Search Flight History';
+                return;
+            }
+
+            const beginDateObj = new Date(beginDate);
+            const endDateObj = new Date(endDate);
+
+            if ((endDateObj - beginDateObj) / (1000 * 60 * 60 * 24) > 2) {
+                showNotification('The date range cannot be larger than 2 days.', 'error');
+                 historyContent.innerHTML = `<p class="text-center text-red-500">Error: The date range cannot be larger than 2 days.</p>`;
+                button.disabled = false;
+                button.innerHTML = 'Search Flight History';
+                return;
+            }
+
+            const beginTimestamp = Math.floor(beginDateObj.getTime() / 1000);
+            const endTimestamp = Math.floor(endDateObj.getTime() / 1000) + (24 * 60 * 60 -1); // End of the selected day
+
+            const clientId = apiClientIdInput.value;
+            const clientSecret = apiClientSecretInput.value;
+            const useAuth = clientId && clientSecret;
+            const headers = new Headers();
+
+            try {
+                if (useAuth) {
+                    const token = await getOpenSkyAuthToken(clientId, clientSecret);
+                    headers.append('Authorization', 'Bearer ' + token);
+                }
+
+                const url = `https://opensky-network.org/api/flights/aircraft?icao24=${icao24}&begin=${beginTimestamp}&end=${endTimestamp}`;
+                const response = await fetch(url, { method: 'GET', headers: headers });
+
+                if (response.status === 404) {
+                    renderFlightHistory([]); // No flights found
+                    return;
+                }
+                
+                if (!response.ok) {
+                    throw new Error(`OpenSky API responded with status: ${response.status}`);
+                }
+
+                const flights = await response.json();
+                renderFlightHistory(flights);
+            } catch (error) {
+                console.error("Error fetching flight history:", error);
+                showNotification(`Failed to fetch flight history: ${error.message}`, 'error');
+                historyContent.innerHTML = `<p class="text-center text-red-500">Failed to fetch flight history. Check console for details.</p>`;
+            } finally {
+                button.disabled = false;
+                button.innerHTML = 'Search Flight History';
+            }
+        }
+
+        // --- EVENT HANDLERS & LOGIC ---
+        function planMaintenance(machineId) {
+            const machine = mockMachineData.find(m => m.id === machineId);
+            if (!machine) return;
+
+            maintenanceContent.innerHTML = '<div class="flex justify-center p-8"><div class="loader"></div></div>';
+            maintenanceModal.classList.remove('hidden');
+
+            const incomingFlight = activeFlightData.find(f => f.machineId === machineId);
+            const partInfo = trackedAircraft.find(a => a.machineId === machineId);
+            const flightStatusInfo = incomingFlight ? `A replacement part (${partInfo.part}) is currently in transit. The flight status is: ${incomingFlight.status}.` : `There is no replacement part currently in transit.`;
+
+            const systemPrompt = `You are a Senior Manufacturing Maintenance Planner. Your task is to generate a concise, actionable preventative maintenance plan for a machine that is at high risk of failure. The plan should be practical for a factory floor technician.`;
+            const userQuery = `A machine is showing a high probability of failure. Please create a maintenance plan. The output must be clean HTML.
+
+The plan should include:
+1.  An 'h3' title: "Maintenance Plan for Machine ${machine.id}".
+2.  A short paragraph summarizing the machine's current critical status.
+3.  An 'h4' heading for "Priority Actions".
+4.  An ordered list ('ol') of 3-4 clear, step-by-step actions for the maintenance technician.
+5.  An 'h4' heading for "Required Part".
+6.  A paragraph stating the required part and its shipment status.
+7.  An 'h4' heading for "Draft Work Order Email".
+8.  A pre-formatted email draft inside a 'pre' tag with a light gray background, addressed to 'maintenance-team@example.com' with a subject line, scheduling the work and noting the urgency.
+
+**Machine Data:**
+- Machine ID: ${machine.id}
+- Failure Probability: ${(machine.failureProb * 100).toFixed(0)}%
+- Tool Wear: ${machine.toolWear} min
+
+**Logistics Data:**
+- ${flightStatusInfo}
+`;
+
+            callGeminiAPI(systemPrompt, userQuery)
+                .then(html => { maintenanceContent.innerHTML = `<div class="prose prose-invert max-w-none">${html}</div>`; })
+                .catch(error => {
+                    console.error("Error generating maintenance plan:", error);
+                    maintenanceContent.innerHTML = `<p class="text-red-400">${error.message}</p>`;
+                    showNotification("Could not generate maintenance plan.", 'error');
+                });
+        }
+        
+        async function analyzeWeatherImpact(event, icao24) {
+            const flight = activeFlightData.find(f => f.icao24 === icao24);
+            if (!flight) return;
+
+            const button = event.target.closest('button');
+            const analysisContainer = document.getElementById(`weather-analysis-${icao24}`);
+            
+            button.disabled = true;
+            button.innerHTML = `<div class="loader-small"></div> Analyzing...`;
+            analysisContainer.innerHTML = ''; 
+
+            const systemPrompt = `You are an aviation meteorologist providing concise, actionable weather advisories for logistics planning. Your analysis should be based on real-time weather data.`;
+            
+            const userQuery = `Analyze the weather forecast for a flight route from ${flight.origin} to ${flight.dest}. Based on publicly available weather data (wind, precipitation, storms, volcanic ash, etc.), provide a risk assessment. The output must be a single, clean HTML paragraph. The paragraph must start with a bolded risk level ('Low Risk', 'Medium Risk', or 'High Risk'). Follow this with a concise, one-sentence explanation for your assessment.
+
+Example 1: <p><b>Low Risk:</b> Clear conditions are expected along the entire flight path.</p>
+Example 2: <p><b>Medium Risk:</b> Potential for thunderstorms near the destination airport could cause holding patterns or diversions.</p>
+Example 3: <p><b>High Risk:</b> A significant snowstorm is forecast for the origin airport, likely causing ground delays and potential cancellation.</p>`;
+
+            try {
+                const weatherHtml = await callGeminiAPI(systemPrompt, userQuery);
+                analysisContainer.innerHTML = `<div class="text-sm text-gray-300 mt-2">${weatherHtml}</div>`;
+            } catch (error) {
+                console.error("Error analyzing weather impact:", error);
+                analysisContainer.innerHTML = `<p class="text-red-400 text-sm mt-2">Could not retrieve weather analysis. ${error.message}</p>`;
+                showNotification("Failed to get weather analysis.", 'error');
+            } finally {
+                button.disabled = false;
+                button.innerHTML = `✨ Analyze Weather Impact`;
+            }
+        }
+
+        async function generateStrategicBriefing() {
+            const button = strategicBriefingBtn;
+            button.disabled = true;
+            button.innerHTML = `<div class="loader-small"></div> Generating...`;
+
+            alertContainer.className = 'mt-8 bg-[#161b22] border-l-4 border-teal-500 rounded-lg p-6 transition-all duration-500';
+            alertBlinkingDot.className = 'inline-block w-3 h-3 bg-teal-500 rounded-full mr-3 animate-pulse';
+            alertMessage.innerHTML = '<div class="flex justify-center p-8"><div class="loader"></div></div>';
+            generateAISummaryBtn.classList.add('hidden');
+
+            alertContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+            const atRiskMachines = mockMachineData.filter(m => m.failureProb > 0.5);
+            const flightStatuses = activeFlightData;
+            
+            const systemPrompt = `You are a Chief Operations Officer for "Predictive Synapse". Your task is to provide a high-level strategic briefing for the leadership team based on the provided data. The response must be clean HTML formatted with Tailwind's typography plugin classes (prose prose-invert).`;
+            
+            const atRiskMachinesText = atRiskMachines.length > 0 
+                ? atRiskMachines.map(m => `- Machine ${m.id} (Failure Probability: ${(m.failureProb * 100).toFixed(0)}%)`).join('\n')
+                : 'All machines are healthy.';
+            
+            const flightStatusesText = flightStatuses.length > 0
+                ? flightStatuses.map(f => `- Flight ${f.id} (${f.origin} to ${f.dest}) status: ${f.status}.`).join('\n')
+                : 'No shipment data available.';
+
+            const userQuery = `Here is the latest data snapshot:
+
+**Factory Floor Status:**
+${atRiskMachinesText}
+
+**Critical Shipments Status:**
+${flightStatusesText}
+
+Based on this, provide a comprehensive but concise strategic briefing. It should include:
+1.  An 'h2' title: "COO's Strategic Operations Briefing".
+2.  A paragraph summarizing the overall operational health.
+3.  An 'h3' for "Urgent Risks & Mitigation".
+4.  An unordered list identifying the top 2-3 most urgent risks and recommending strategic actions.
+5.  An 'h3' for "Next 12-Hour Outlook".
+6.  A paragraph outlining the expected operational status and key watch-items for the next 12 hours.`;
+
+            try {
+                const briefingHtml = await callGeminiAPI(systemPrompt, userQuery);
+                alertMessage.innerHTML = `<div class="prose prose-invert max-w-none overflow-y-auto" style="max-height: 40vh;">${briefingHtml}</div>`;
+                alertBlinkingDot.classList.remove('animate-pulse');
+            } catch (error) {
+                console.error("Error generating strategic briefing:", error);
+                alertMessage.innerHTML = `<div class="text-red-400"><h3 class="font-bold text-lg mb-2">Failed to Generate Briefing</h3><p>${error.message}</p></div>`;
+                alertContainer.className = 'mt-8 bg-[#161b22] border-l-4 border-red-600 rounded-lg p-6 transition-all duration-500';
+                alertBlinkingDot.className = 'inline-block w-3 h-3 bg-red-500 rounded-full mr-3';
+            } finally {
+                button.disabled = false;
+                button.innerHTML = `✨ Generate Strategic Briefing`;
+            }
+        }
+
+        async function runRiskAnalysis() {
+            const button = runAnalysisBtn;
+            button.disabled = true;
+            button.innerHTML = `<div class="loader-small"></div> Analyzing...`;
+
+            alertContainer.className = 'mt-8 bg-[#161b22] border-l-4 border-indigo-500 rounded-lg p-6 transition-all duration-500';
+            alertBlinkingDot.className = 'inline-block w-3 h-3 bg-indigo-500 rounded-full mr-3 animate-pulse';
+            alertMessage.innerHTML = '<div class="flex justify-center p-8"><div class="loader"></div></div>';
+            generateAISummaryBtn.classList.add('hidden');
+
+            const flightsWithIssues = activeFlightData.filter(f => f.status !== 'In Air' && f.status !== 'On Ground');
+            const machinesAtRisk = mockMachineData.filter(m => m.failureProb > 0.75);
+
+            const systemPrompt = `You are a logistics and supply chain risk analyst. Your job is to analyze flight and factory data to identify critical conflicts that could lead to production delays. Present your findings clearly and concisely in HTML format.`;
+            const userQuery = `Please analyze the following data for potential supply chain disruptions.
+
+**Live Flight Data with Potential Issues (Delayed, Not Detected, etc.):**
+${JSON.stringify(flightsWithIssues, null, 2)}
+
+**Critical At-Risk Factory Machines (Failure Probability > 75%):**
+${JSON.stringify(machinesAtRisk, null, 2)}
+
+A conflict occurs when a part needed for an at-risk machine is on a flight that has potential issues.
+
+Based on the data, perform the following:
+1.  Identify any direct conflicts by matching 'machineId' between the two datasets.
+2.  Summarize the overall risk level. Your response MUST begin with one of three phrases: "Risk Level: Nominal", "Risk Level: Elevated", or "Risk Level: Critical".
+3.  Present your findings as an HTML report. The report MUST start with an 'h3' element containing the overall risk level. 
+    - If the risk is Nominal, follow with a simple paragraph stating that no conflicts were found.
+    - If the risk is Elevated or Critical, follow with an unordered list ('ul') detailing each specific conflict, mentioning the machine, the part, the flight, and the potential impact.`;
+            
+            try {
+                const analysisHtml = await callGeminiAPI(systemPrompt, userQuery);
+                alertMessage.innerHTML = `<div class="prose prose-invert max-w-none">${analysisHtml}</div>`;
+
+                if (analysisHtml.includes("Critical") || analysisHtml.includes("Elevated")) {
+                    alertContainer.className = 'mt-8 bg-[#161b22] border-l-4 border-red-500 rounded-lg p-6 transition-all duration-500';
+                    alertBlinkingDot.className = 'inline-block w-3 h-3 bg-red-500 rounded-full mr-3 animate-pulse';
+                    generateAISummaryBtn.classList.remove('hidden');
+                } else {
+                     alertContainer.className = 'mt-8 bg-[#161b22] border-l-4 border-green-500 rounded-lg p-6 transition-all duration-500';
+                    alertBlinkingDot.className = 'inline-block w-3 h-3 bg-green-500 rounded-full mr-3';
+                }
+
+            } catch(error) {
+                console.error("Error running risk analysis:", error);
+                alertMessage.innerHTML = `<div class="text-red-400"><h3 class="font-bold text-lg mb-2">Failed to Run Analysis</h3><p>${error.message}</p></div>`;
+                alertContainer.className = 'mt-8 bg-[#161b22] border-l-4 border-red-600 rounded-lg p-6 transition-all duration-500';
+                alertBlinkingDot.className = 'inline-block w-3 h-3 bg-red-500 rounded-full mr-3';
+            } finally {
+                alertBlinkingDot.classList.remove('animate-pulse');
+                button.disabled = false;
+                button.innerHTML = `✨ Run Risk Analysis`;
+            }
+        }
+
+        async function generateMitigationPlan() {
+            const button = generateAISummaryBtn;
+            button.disabled = true;
+            button.innerHTML = `<div class="loader-small"></div> Generating Plan...`;
+
+            const riskAnalysisText = alertMessage.innerText;
+
+            const systemPrompt = `You are an expert operations manager. Given a set of supply chain risks, create a concise, actionable mitigation plan.`;
+            const userQuery = `The following critical risk has been identified in our supply chain:
+---
+${riskAnalysisText}
+---
+Please generate a step-by-step mitigation plan to address these issues. The output should be a clean HTML ordered list ('ol'). The steps should be practical and specific, such as "1. Immediately contact the freight carrier for an updated ETA for the affected flight." or "2. Alert the factory floor manager for the specific machine about the potential part delay and prepare for a potential line stoppage."`;
+
+            try {
+                const planHtml = await callGeminiAPI(systemPrompt, userQuery);
+                const mitigationContainer = document.createElement('div');
+                mitigationContainer.className = "mt-4 pt-4 border-t border-gray-700/50";
+                mitigationContainer.innerHTML = `<h4 class="font-bold text-lg text-purple-300 mb-2">Mitigation Plan:</h4><div class="prose prose-invert max-w-none">${planHtml}</div>`;
+                alertMessage.appendChild(mitigationContainer);
+                button.classList.add('hidden'); // Hide after generating
+            } catch (error) {
+                console.error("Error generating mitigation plan:", error);
+                showNotification(`Failed to generate mitigation plan: ${error.message}`, 'error');
+            } finally {
+                button.disabled = false;
+                 button.innerHTML = `✨ Generate AI Summary & Mitigation Plan`;
+            }
+        }
+        
+        function initializeDefaultData() {
+            activeFlightData = trackedAircraft.map((aircraft) => ({
+                icao24: aircraft.icao24,
+                id: `STANDBY-${aircraft.icao24.slice(0,3).toUpperCase()}`,
+                origin: aircraft.defaultOrigin,
+                dest: aircraft.defaultDest,
+                part: aircraft.part,
+                machineId: aircraft.machineId,
+                status: 'On Ground',
+                lat: null,
+                lon: null,
+            }));
             renderMachineData();
-            fetchDataBtn.addEventListener('click', fetchFlightData);
+            renderFlightData();
+            renderFactoryPieChart();
+            updateKPIs();
+        }
+
+        function populateAircraftSelector() {
+            aircraftSelect.innerHTML = '<option value="">-- Select Aircraft --</option>';
+            trackedAircraft.forEach(ac => {
+                const option = document.createElement('option');
+                option.value = ac.icao24;
+                option.textContent = `ICAO: ${ac.icao24} (Part: ${ac.part})`;
+                aircraftSelect.appendChild(option);
+            });
+        }
+
+        // --- INITIALIZATION ---
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTime();
+            setInterval(updateTime, 1000);
+            
+            populateAircraftSelector();
+
+            // Home Page to Dashboard Transition
+            enterDashboardBtn.addEventListener('click', () => {
+                homePage.classList.add('fade-out');
+                setTimeout(() => {
+                    homePage.style.display = 'none';
+                    dashboardHeader.classList.remove('hidden');
+                    dashboardMain.classList.remove('hidden');
+                    dashboardHeader.classList.add('fade-in');
+                    dashboardMain.classList.add('fade-in');
+
+                    // --- INITIALIZE DASHBOARD VISUALS NOW THAT THEY ARE VISIBLE ---
+                    if (!map) { // Initialize map only once
+                        map = L.map(mapContainer).setView([20, 0], 2);
+                        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(map);
+                    }
+                    
+                    // Initialize/re-render data that depends on visible elements
+                    initializeDefaultData(); 
+
+                    // Ensure map is correctly sized
+                    setTimeout(() => map.invalidateSize(), 10);
+                }, 500);
+            });
+            
+            // Modal Event Listeners
+            closeMaintenanceBtn.addEventListener('click', () => maintenanceModal.classList.add('hidden'));
+            viewHistoryBtn.addEventListener('click', () => historyModal.classList.remove('hidden'));
+            closeHistoryBtn.addEventListener('click', () => historyModal.classList.add('hidden'));
+
+            // Button Event Listeners
+            strategicBriefingBtn.addEventListener('click', generateStrategicBriefing);
+            fetchDataBtn.addEventListener('click', fetchOpenSkyData);
+            fetchHistoryBtn.addEventListener('click', fetchFlightHistory);
             runAnalysisBtn.addEventListener('click', runRiskAnalysis);
-            generateAISummaryBtn.addEventListener('click', generateAISummary);
+            generateAISummaryBtn.addEventListener('click', generateMitigationPlan);
+
         });
+
     </script>
 </body>
 </html>
+
 
